@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from 'express';
 
 const prisma = new PrismaClient();
+// excellent Express, j'adore, pas forcément le plus moderne mais super minimaliste
 const app = express();
 
 app.options("*", cors());
@@ -39,6 +40,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// CR : 🏗️ au niveau archi ce genre de fetcher je les mettrai dans le dossier /services
+// soit par entité (genre un fichier player.ts avec cette fonction et d'autres dedans)
+// ou carrément fonction par fonction (fetch-games-for-player.ts) c'est plus facile à chercher
+// (et si tu fais un fichier db.js je le mettrais plutôt dans un dossier /lib)
 async function fetchGamesForPlayer(playerId: number, tournamentId: number) {
   return await prisma.playerStats.findMany({
     where: {
@@ -56,6 +61,10 @@ app.get("/season-points/:playerId/:tournamentId", async (req:Request, res:Respon
 
   const games = await fetchGamesForPlayer(playerId, tournamentId);
 
+  // CR : alors perso je déteste les reduce j'arrive jamais à les lire je trouve ça hyper confus
+  // pour ce genre de calculs récurrents je te conseille 100% d'ajouter lodash au projet. ici ça donnerait
+  // du code comme ça (vachement plus lisible non ?) :
+  // const totalPoints = sumBy(games, (game) => game.points)
   const totalPoints = games.reduce(
     (sum: number, game: { points: number }) => sum + game.points,
     0
@@ -70,6 +79,7 @@ app.get("/player-total-cost/:playerId/:tournamentId", async (req:Request, res:Re
 
   const games = await fetchGamesForPlayer(playerId, tournamentId);
 
+  // const totalCost = sumBy(games, (game) => game.buyin + game.rebuys)
   const totalCost = games.reduce(
     (sum: number, game: any) => sum + game.buyin + game.rebuys,
     0
@@ -93,6 +103,12 @@ app.get("/player-gains/:playerId/:tournamentId", async (req:Request, res:Respons
   });
   console.log("games:", games);
 
+  // const gains = sumBy(games, (game) => {
+  //   if (game.position === 1) return game.totalCost * 0.6;
+  //   else if (game.position === 2) return game.totalCost * 0.3;
+  //   else if (game.position === 3) return game.totalCost * 0.1;
+  // })
+  // (OK j'arrête avec les examples :p)
   const gains = games.reduce((sum: number, game: any) => {
     console.log("game.position:", game.position);
     console.log("game.totalCost:", game.totalCost);
@@ -106,6 +122,10 @@ app.get("/player-gains/:playerId/:tournamentId", async (req:Request, res:Respons
   res.json({ gains });
 });
 
+// CR : en fait je regarde tous ces endpoints qui renvoient des petites stats sur le player,
+// et je me demande pourquoi tu fais pas un endpoint /player/:playerId qui calcule toutes les stats
+// et renvoie un player augmenté avec gains, totalRebuys etc... beaucoup plus simple côté React
+// tu fetch ton player une fois et tu fais passer par les props
 app.get("/player-total-rebuys/:playerId/:tournamentId", async (req:Request, res:Response) => {
   const playerId = parseInt(req.params.playerId);
   const tournamentId = parseInt(req.params.tournamentId);
@@ -155,6 +175,8 @@ app.get("/playerStats", async (req: express.Request, res: express.Response) => {
     }
   } catch (error: any) {
     console.error("Error occurred in /game route: ", error);
+    // CR : essaye de voir avec Express tu peux avoir un middleware qui gère les erreurs
+    // ça t'évite d'avoir un `try...catch` dans chaque middleware
     if (error instanceof Error) {
       res.status(500).json({ error: error.message });
     } else {
@@ -167,6 +189,7 @@ app.get("/playerStats", async (req: express.Request, res: express.Response) => {
 
 app.get("/playerStats/:playerId", async (req:Request, res:Response) => {
  try{
+  // CR : Number ou parseInt les deux marchent mais il vaut mieux en choisir un seul
    const  playerId  =  Number(req.params.playerId);
     const stats = await prisma.playerStats.findMany({
       where: { playerId: playerId , },
@@ -241,6 +264,9 @@ app.get("/tournament/:year", async (req:Request, res:Response) => {
   });
 
   if (!tournament) {
+    // CR : un peu de la branlette mais ne pas trouver de tournois c'est pas une erreur
+    // du coup tu devrais pas renvoyer une 404 mais plutôt res.json(tournament) (qui vaudra [])
+    // c'est côté React que tu dois gérer le cas où le tableau est vide
     return res
       .status(404)
       .json({ error: "No tournament found for the given year." });
@@ -278,6 +304,7 @@ app.get("/gameResults/:playerId", async (req:Request, res:Response) => {
       },
     });
 
+    // CR : même remarque qu'au dessus
     if (!playerGames || playerGames.length === 0) {
       return res
         .status(404)
@@ -325,6 +352,12 @@ app.post("/tournaments", async (req:Request, res:Response) => {
   res.json(tournaments);
 });
 
+// CR : 🏗️ c'est pas du tout clair pour moi ce que fait cet endpoint. parties on se dirait que ça renvoie
+// des parties mais ça en crée une et ça la renvoie :'( Scolairement c'est ce qu'il faut faire
+// ça respecte la convention REST mais dans la vraie vie je trouve ça contre-intuitif.
+// Chez figures on est d'une autre école, nos endpoints c'est `create-employee`, `fetch-company-employees`
+// etc... on a pas honte d'avoir un endpoint hyper spécifique pour une action donnée ou même pour alimenter une page en data.
+// On en a une centaine ou plus mais c'est méga simple à maintenir.
 app.post("/parties", async (req:Request, res:Response) => {
   const { date, tournamentId } = req.body;
   const parties = await prisma.party.create({

@@ -1,3 +1,8 @@
+// Si c'est pas utilisé, tu peux supprimer le fichier. Avec git ça sert à rien de stocker du code
+// commenté comme ça. Tu peux soit le supprimer tout court (et tu le retrouveras dans l'historique
+// si t'en as besoin un jour), soit faire une branche et le garder dessus, mais le garder dans ton repo
+// ça te charge juste le cerveau pour rien.
+
 // import { PrismaClient, Party, Player, PlayerStats } from "@prisma/client";
 
 // const prisma = new PrismaClient();
