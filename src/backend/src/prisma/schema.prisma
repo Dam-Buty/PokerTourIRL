@@ -1,58 +1,66 @@
-
-
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  // CR : à ta place pour le dev j'utiliserais sqlite c'est vachement plus simple à manoeuvrer
+  // t'as juste un fichier que tu peux checkin dans le repo, tu peux même en avoir plusieurs
+  // (un à vide, un avec tous tes joueurs pré-rentrés, etc...) et tu les renommes pour switcher de l'un à l'autre
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
   relationMode = "prisma"
-  
+  // CR : pourquoi utiliser le relationMode prisma ? sur mysql/sqlite c'est beaucoup plus performant d'avoir des foreign key
 }
+
 generator client {
   provider = "prisma-client-js"
-
-  
 }
+
 model Tournament {
-  id        Int       @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   year      Int
-  parties   Party[] 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  parties   Party[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Party {
-  id           Int       @id @default(autoincrement())
-  date         DateTime
+  id           Int           @id @default(autoincrement())
   tournamentId Int
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
-  playerStats  PlayerStats[]    
-  partyStarted DateTime?  // nullable, will be set when the party starts
-  partyEnded   DateTime?  // nullable, will be set when the party ends
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  date         DateTime
+  playerStats  PlayerStats[]
+  // CR : 🥜 la convention c'est `startedAt`, `endedAt` si tu veux suivre la même convention que `outAt`
+  // (je recommande). Aussi, pas besoin de répéter le nom de la table dans la colonne.
+  partyStarted DateTime? // nullable, will be set when the party starts
+  partyEnded   DateTime? // nullable, will be set when the party ends
+  // CR : 🥜 d'une manière générale ce genre de commentaire a pas beaucoup de valeur. L'intention du code est claire.
+  tournament   Tournament    @relation(fields: [tournamentId], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model Player {
-  id        Int       @id @default(autoincrement())
-  name      String
-  stats     PlayerStats[] 
-  phoneNumber String?  
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          Int           @id @default(autoincrement())
+  name        String
+  stats       PlayerStats[]
+  phoneNumber String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
+// CR : ça fait pêteux à mort mais perso je préfère avoir les colonnes dans un certain ordre dans Prisma
+// c'est : id, puis les id de relations, puis les colonnes normales, puis les relations, et les timestamps
+// à la fin. L'ordre importe peu, mais ce qui compte c'est de prendre l'habitude de respecter une convention. Ca réduit
+// la charge mentale à chaque fois que tu viens chercher un truc dans ton schéma, tu me remercieras :D
 model PlayerStats {
-  id         Int       @id @default(autoincrement())
-  partyId    Int
-  party      Party     @relation(fields: [partyId], references: [id])
-  playerId   Int
-  player     Player    @relation(fields: [playerId], references: [id])
-  points     Int
-  kills      Int @default(0)
-  buyin      Int
-  rebuys     Int
-  position   Int?
-  totalCost  Float     @default(0.0) 
-  outAt      DateTime? // nullable, will be set when the player is out
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id        Int       @id @default(autoincrement())
+  partyId   Int
+  playerId  Int
+  points    Int
+  kills     Int       @default(0)
+  buyin     Int
+  rebuys    Int
+  position  Int?
+  totalCost Float     @default(0.0)
+  outAt     DateTime?
+  party     Party     @relation(fields: [partyId], references: [id])
+  player    Player    @relation(fields: [playerId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
